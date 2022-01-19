@@ -107,7 +107,9 @@ def compute_clusters(curve, t, plot = False):
     
     del inc_canton['CH']
     
-    cm,lm=lag_ccf(inc_canton.values)
+    del inc_canton['FL']
+    
+    cm,lm=lag_ccf(inc_canton.rolling(7).mean().dropna().values)
     
     # Plotting the dendrogram
     linkage = hcluster.linkage(cm, method='complete')
@@ -177,7 +179,10 @@ def get_cluster_data(curve, georegion):
 
         
     df = get_canton_data(curve, georegion)
-    #print(df)
+    
+    #print(curve)
+    #print(georegion)
+    #print(df.index[-1])
     # dataframe where will the curve for each region
     
     df_end = pd.DataFrame()
@@ -189,9 +194,22 @@ def get_cluster_data(curve, georegion):
         if curve == 'hospcapacity':
             df_aux = df.loc[df.geoRegion == i].resample('D').mean()   
             df_end['ICU_patients_'+i] = df_aux.ICU_Covid19Patients
+            df_end['total_hosp_' + i] = df_aux.Total_Covid19Patients
+            df_end.index = pd.to_datetime(df_end.index)
+        
         else:
-            df_end[curve+'_'+i] = df.loc[df.geoRegion == i].entries
-            
+            if curve == 'hosp':
+                df_aux = df.loc[df.geoRegion == i].resample('D').mean()   
+                df_end[curve+'_'+i] = df_aux.entries
+                df_end[f'diff_{curve}_{i}'] = np.concatenate( ([np.nan], np.diff(df_aux.entries,1)))
+                df_end[f'diff_2_{curve}_{i}'] = np.concatenate( ([np.nan, np.nan], np.diff(df_aux.entries,2)))
+             
+            else:
+                df_aux = df.loc[df.geoRegion == i].resample('D').mean()   
+                df_end[curve+'_'+i] = df_aux.entries
+                df_end[f'diff_{curve}_{i}'] = np.concatenate( ([np.nan], np.diff(df_aux.entries,1)))
+                df_end[f'diff_2_{curve}_{i}'] = np.concatenate( ([np.nan, np.nan], np.diff(df_aux.entries,2)))
+             
     df_end = df_end.resample('D').mean()   
         
     return df_end
@@ -249,7 +267,6 @@ def get_combined_data( data_types, georegion,vaccine = True, smooth = True):
         df = df.rolling(window = 7).mean()
         
         df = df.dropna()
-
         
     return df 
 
@@ -269,7 +286,7 @@ def get_canton_data(curve, canton, ini_date = None):
     
     # dictionary with the columns that will be used for each curve. 
     dict_cols = {'cases':['geoRegion','datum','entries'], 'test': ['geoRegion','datum','entries', 'entries_pos'],
-                'hosp':['geoRegion','datum','entries'], 'hospcapacity':['geoRegion','date','ICU_Covid19Patients'], 're': ['geoRegion', 'date','median_R_mean']
+                'hosp':['geoRegion','datum','entries', 'sumTotal'], 'hospcapacity':['geoRegion','date','ICU_Covid19Patients', 'Total_Covid19Patients'], 're': ['geoRegion', 'date','median_R_mean']
                 }
     
     # getting the data from the databank
@@ -289,7 +306,3 @@ def get_canton_data(curve, canton, ini_date = None):
         df = df[ini_date:]
     
     return df
-    
-    
-    
-
